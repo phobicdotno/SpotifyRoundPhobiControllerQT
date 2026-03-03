@@ -9,6 +9,8 @@ find_package(Qt6 REQUIRED COMPONENTS Quick Network Gui)
 
 qt_add_executable(SpotifyController
     src/main.cpp
+    src/spotifyauth.h
+    src/spotifyauth.cpp
 )
 
 qt_add_qml_module(SpotifyController
