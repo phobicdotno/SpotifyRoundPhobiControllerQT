@@ -10,32 +10,28 @@ Window {
     color: "black"
     title: "Spotify Controller"
 
-    Rectangle {
+    // --- Setup View (auth waiting) ---
+    SetupView {
+        id: setupView
         anchors.fill: parent
-        color: "black"
-
-        Rectangle {
-            id: viewport
-            anchors.centerIn: parent
-            width: Math.min(parent.width, parent.height)
-            height: width
-            radius: width / 2
-            clip: true
-            color: "#111"
-
-            Text {
-                anchors.centerIn: parent
-                text: "SpotifyController\nQt6 + QML"
-                color: "#1DB954"
-                font.pixelSize: 32
-                font.bold: true
-                horizontalAlignment: Text.AlignHCenter
-            }
-        }
+        visible: !Spotify.authenticated
+        z: 100
     }
 
-    Shortcut {
-        sequence: "Escape"
-        onActivated: Qt.quit()
+    // --- Player View (main app) ---
+    PlayerView {
+        id: playerView
+        anchors.fill: parent
+        visible: Spotify.authenticated
+    }
+
+    // Wire trackChanged to show toast when track changes
+    Connections {
+        target: Spotify
+        function onTrackChanged(direction) {
+            if (Spotify.authenticated && Spotify.trackName) {
+                playerView.showTrackToast(Spotify.trackName, Spotify.artist);
+            }
+        }
     }
 }

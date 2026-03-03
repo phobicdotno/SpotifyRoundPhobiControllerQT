@@ -20,6 +20,15 @@ qt_add_qml_module(SpotifyController
     VERSION 1.0
     QML_FILES
         qml/main.qml
+        qml/SetupView.qml
+        qml/PlayerView.qml
+        qml/components/AlbumArt.qml
+        qml/components/VinylCenter.qml
+        qml/components/ProgressRing.qml
+        qml/components/FeedbackOverlay.qml
+        qml/components/TrackToast.qml
+        qml/components/VolumeOverlay.qml
+        qml/components/BurstEffect.qml
 )
 
 target_link_libraries(SpotifyController PRIVATE
