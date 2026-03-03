@@ -1,4 +1,5 @@
 import QtQuick
+import Qt5Compat.GraphicalEffects
 
 Item {
     id: artRoot
@@ -15,6 +16,27 @@ Item {
     property bool flippingOut: false
     property url pendingUrl: ""
 
+    // Shared circle mask for both layers
+    Rectangle {
+        id: artMask
+        width: artRoot.width
+        height: artRoot.height
+        radius: width / 2
+        visible: false
+    }
+
+    // Single VSync-driven spin for both layers
+    FrameAnimation {
+        running: artRoot.playing
+        onTriggered: {
+            var delta = 360 * frameTime / 30;  // 30s per full rotation
+            if (artRoot.activeIsA || artRoot.transitioning)
+                layerA.rotAngle = (layerA.rotAngle + delta) % 360;
+            if (!artRoot.activeIsA || artRoot.transitioning)
+                layerB.rotAngle = (layerB.rotAngle + delta) % 360;
+        }
+    }
+
     // Called immediately on swipe — starts flip-out before API responds
     function beginTransition(direction) {
         if (transitioning) return;
@@ -23,11 +45,10 @@ Item {
         pendingUrl = "";
         flippingOut = true;
 
-        // Sync incoming layer's spin angle so it continues seamlessly
+        // Sync incoming layer's spin angle for seamless handoff
         var current = activeIsA ? layerA : layerB;
         var incoming = activeIsA ? layerB : layerA;
         incoming.rotAngle = current.rotAngle;
-        incoming.lastSpinTime = 0;
 
         flipOutAnim.target = current;
         flipOutAnim.to = (direction === "left") ? -90 : 90;
@@ -48,10 +69,10 @@ Item {
 
     function loadAndFlipIn() {
         var incoming = activeIsA ? layerB : layerA;
-        incoming.source = pendingUrl;
+        incoming.imgSource = pendingUrl;
         waitingForLoad = false;
 
-        if (incoming.status === Image.Ready) {
+        if (incoming.imgStatus === Image.Ready) {
             startFlipIn();
         } else {
             waitingForLoad = true;
@@ -80,13 +101,12 @@ Item {
         oldCurrent.opacity = 0;
         oldCurrent.flipAngle = 0;
         newCurrent.flipAngle = 0;
-        // Don't reset rotAngle — spin continues seamlessly
 
         activeIsA = !activeIsA;
         transitioning = false;
     }
 
-    // Flip-out animation (current record leaves)
+    // Flip-out animation
     NumberAnimation {
         id: flipOutAnim
         property: "flipAngle"
@@ -100,7 +120,7 @@ Item {
         }
     }
 
-    // Flip-in animation (new record arrives)
+    // Flip-in animation
     NumberAnimation {
         id: flipInAnim
         property: "flipAngle"
@@ -109,21 +129,24 @@ Item {
         onFinished: artRoot.finishTransition()
     }
 
-    // Layer A
-    Image {
+    // Layer A — circular before 3D transforms
+    Item {
         id: layerA
         width: parent.width
         height: parent.height
         anchors.centerIn: parent
-        fillMode: Image.PreserveAspectCrop
         visible: true
         opacity: 1
-        source: ""
-        cache: true
-        asynchronous: true
         property real rotAngle: 0
         property real flipAngle: 0
-        property real lastSpinTime: 0
+        property alias imgSource: imgA.source
+        property alias imgStatus: imgA.status
+
+        layer.enabled: true
+        layer.smooth: true
+        layer.effect: OpacityMask {
+            maskSource: artMask
+        }
 
         transform: [
             Scale { origin.x: layerA.width/2; origin.y: layerA.height/2; xScale: 1.05; yScale: 1.05 },
@@ -135,26 +158,16 @@ Item {
             }
         ]
 
-        // Spin keeps running during transitions — both layers spin together
-        Timer {
-            interval: 16
-            repeat: true
-            running: (artRoot.activeIsA || artRoot.transitioning) && artRoot.playing
-            onTriggered: {
-                var now = Date.now();
-                if (layerA.lastSpinTime > 0) {
-                    var dt = now - layerA.lastSpinTime;
-                    layerA.rotAngle = (layerA.rotAngle + 360 * dt / 30000) % 360;
-                }
-                layerA.lastSpinTime = now;
-            }
-            onRunningChanged: {
-                if (running) layerA.lastSpinTime = Date.now();
-            }
+        Image {
+            id: imgA
+            anchors.fill: parent
+            fillMode: Image.PreserveAspectCrop
+            cache: true
+            asynchronous: true
         }
 
-        onStatusChanged: {
-            if (status === Image.Ready && artRoot.waitingForLoad) {
+        onImgStatusChanged: {
+            if (imgStatus === Image.Ready && artRoot.waitingForLoad) {
                 artRoot.waitingForLoad = false;
                 artRoot.startFlipIn();
             }
@@ -162,20 +175,23 @@ Item {
     }
 
     // Layer B
-    Image {
+    Item {
         id: layerB
         width: parent.width
         height: parent.height
         anchors.centerIn: parent
-        fillMode: Image.PreserveAspectCrop
         visible: false
         opacity: 0
-        source: ""
-        cache: true
-        asynchronous: true
         property real rotAngle: 0
         property real flipAngle: 0
-        property real lastSpinTime: 0
+        property alias imgSource: imgB.source
+        property alias imgStatus: imgB.status
+
+        layer.enabled: true
+        layer.smooth: true
+        layer.effect: OpacityMask {
+            maskSource: artMask
+        }
 
         transform: [
             Scale { origin.x: layerB.width/2; origin.y: layerB.height/2; xScale: 1.05; yScale: 1.05 },
@@ -187,39 +203,30 @@ Item {
             }
         ]
 
-        Timer {
-            interval: 16
-            repeat: true
-            running: (!artRoot.activeIsA || artRoot.transitioning) && artRoot.playing
-            onTriggered: {
-                var now = Date.now();
-                if (layerB.lastSpinTime > 0) {
-                    var dt = now - layerB.lastSpinTime;
-                    layerB.rotAngle = (layerB.rotAngle + 360 * dt / 30000) % 360;
-                }
-                layerB.lastSpinTime = now;
-            }
-            onRunningChanged: {
-                if (running) layerB.lastSpinTime = Date.now();
-            }
+        Image {
+            id: imgB
+            anchors.fill: parent
+            fillMode: Image.PreserveAspectCrop
+            cache: true
+            asynchronous: true
         }
 
-        onStatusChanged: {
-            if (status === Image.Ready && artRoot.waitingForLoad) {
+        onImgStatusChanged: {
+            if (imgStatus === Image.Ready && artRoot.waitingForLoad) {
                 artRoot.waitingForLoad = false;
                 artRoot.startFlipIn();
             }
         }
     }
 
-    // Initial art load (no transition, just set directly)
+    // Initial art load
     property bool firstLoad: true
     onArtSourceChanged: {
         if (artSource.toString() === "") return;
         if (firstLoad) {
             firstLoad = false;
             var active = activeIsA ? layerA : layerB;
-            active.source = artSource;
+            active.imgSource = artSource;
             active.visible = true;
             active.opacity = 1;
         }

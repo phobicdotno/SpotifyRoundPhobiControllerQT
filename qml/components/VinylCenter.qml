@@ -61,9 +61,9 @@ Item {
             id: artistLabel
             text: vinylRoot.artistText
             color: "white"
-            font.pixelSize: vinylRoot.parent ? vinylRoot.parent.width * 0.022 : 22
+            font.pixelSize: vinylRoot.parent ? vinylRoot.parent.width * 0.018 : 18
             font.bold: true
-            font.letterSpacing: (vinylRoot.parent ? vinylRoot.parent.width * 0.022 : 22) * 0.15
+            font.letterSpacing: (vinylRoot.parent ? vinylRoot.parent.width * 0.018 : 18) * 0.15
             font.capitalization: Font.AllUppercase
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.WordWrap
