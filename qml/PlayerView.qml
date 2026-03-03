@@ -1,4 +1,5 @@
 import QtQuick
+import Qt5Compat.GraphicalEffects
 import "components"
 
 Item {
@@ -16,9 +17,16 @@ Item {
         anchors.centerIn: parent
         width: Math.min(parent.width, parent.height)
         height: width
-        radius: width / 2
-        clip: true
         color: "black"
+        layer.enabled: true
+        layer.smooth: true
+        layer.effect: OpacityMask {
+            maskSource: Rectangle {
+                width: viewport.width
+                height: viewport.height
+                radius: width / 2
+            }
+        }
 
         // --- Album Art ---
         AlbumArt {
@@ -36,9 +44,9 @@ Item {
 
             Text {
                 anchors.centerIn: parent
-                text: "Start playing\non Spotify"
-                color: "#404040"
-                font.pixelSize: 24
+                text: "Tap to play"
+                color: "#808080"
+                font.pixelSize: 28
                 horizontalAlignment: Text.AlignHCenter
                 lineHeight: 1.5
             }
@@ -49,6 +57,7 @@ Item {
             id: vinylCenter
             artistText: Spotify.artist
             songText: Spotify.trackName
+            visible: Spotify.hasPlayback
             z: 8
         }
 
@@ -58,6 +67,7 @@ Item {
             playing: Spotify.isPlaying
             currentProgressMs: Spotify.progressMs
             currentDurationMs: Spotify.durationMs
+            visible: Spotify.hasPlayback
             z: 9
         }
 
@@ -109,8 +119,14 @@ Item {
         property real twoFingerStartY: 0
         property int twoFingerStartVol: 0
 
-        // Long-press state
+        // Long-press drag state
         property bool longPressTriggered: false
+        property bool draggingWindow: false
+        property bool hasDragged: false
+        property real dragStartScreenX: 0
+        property real dragStartScreenY: 0
+        property real windowStartX: 0
+        property real windowStartY: 0
 
         Timer {
             id: singleTapTimer
@@ -118,9 +134,10 @@ Item {
             repeat: false
             onTriggered: {
                 viewport.waitingForDoubleTap = false;
-                // Single tap (outside center only — center taps are ignored on single)
-                if (!isCenterTap(viewport.lastTapX, viewport.lastTapY)) {
-                    onSingleTap();
+                // When no playback, any tap starts playing
+                // Otherwise, only outside-center taps toggle play/pause
+                if (!Spotify.hasPlayback || !viewport.isCenterTap(viewport.lastTapX, viewport.lastTapY)) {
+                    viewport.onSingleTap();
                 }
                 viewport.lastTapTime = 0;
             }
@@ -128,15 +145,36 @@ Item {
 
         Timer {
             id: longPressTimer
-            interval: 1800
+            interval: 1000
             repeat: false
             onTriggered: {
                 viewport.longPressTriggered = true;
-                fadeOutAndClose.start();
+                viewport.draggingWindow = true;
+                // Store the screen-space pointer position and window position
+                var global = gestureArea.mapToGlobal(viewport.pointerDownX, viewport.pointerDownY);
+                viewport.dragStartScreenX = global.x;
+                viewport.dragStartScreenY = global.y;
+                viewport.windowStartX = playerRoot.Window.window.x;
+                viewport.windowStartY = playerRoot.Window.window.y;
+                // Start the close timer — will fire if held 3s total with no movement
+                closeTimer.restart();
             }
         }
 
-        // Fade out animation for long-press close
+        Timer {
+            id: closeTimer
+            interval: 2000  // 2s after drag mode (1s + 2s = 3s total hold)
+            repeat: false
+            onTriggered: {
+                // Only close if still holding and never dragged
+                if (viewport.draggingWindow && !viewport.hasDragged) {
+                    viewport.draggingWindow = false;
+                    viewport.pointerActive = false;
+                    fadeOutAndClose.start();
+                }
+            }
+        }
+
         SequentialAnimation {
             id: fadeOutAndClose
             NumberAnimation {
@@ -195,6 +233,7 @@ Item {
             anchors.fill: parent
             acceptedButtons: Qt.LeftButton
             hoverEnabled: false
+            z: 100  // Above all overlays
 
             onPressed: function(mouse) {
                 viewport.pointerDownX = mouse.x;
@@ -202,13 +241,28 @@ Item {
                 viewport.pointerDownTime = Date.now();
                 viewport.pointerActive = true;
                 viewport.longPressTriggered = false;
+                viewport.hasDragged = false;
                 longPressTimer.restart();
             }
 
             onPositionChanged: function(mouse) {
                 if (!viewport.pointerActive) return;
 
-                // Cancel long-press if moved too far
+                if (viewport.draggingWindow) {
+                    // Any movement cancels the close timer
+                    if (!viewport.hasDragged) {
+                        viewport.hasDragged = true;
+                        closeTimer.stop();
+                    }
+                    // Move the window by the delta from drag start
+                    var global = gestureArea.mapToGlobal(mouse.x, mouse.y);
+                    var win = playerRoot.Window.window;
+                    win.x = viewport.windowStartX + (global.x - viewport.dragStartScreenX);
+                    win.y = viewport.windowStartY + (global.y - viewport.dragStartScreenY);
+                    return;
+                }
+
+                // Cancel long-press if moved too far before it triggers
                 var moved = Math.abs(mouse.x - viewport.pointerDownX) +
                             Math.abs(mouse.y - viewport.pointerDownY);
                 if (moved > 50) {
@@ -218,6 +272,12 @@ Item {
 
             onReleased: function(mouse) {
                 if (!viewport.pointerActive) return;
+                if (viewport.draggingWindow) {
+                    closeTimer.stop();
+                    viewport.draggingWindow = false;
+                    viewport.pointerActive = false;
+                    return;
+                }
                 if (viewport.longPressTriggered) {
                     viewport.pointerActive = false;
                     return;
@@ -235,10 +295,12 @@ Item {
                 // Swipe detection - horizontal
                 if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 2 && dt < 500) {
                     if (dx < 0) {
-                        // Swipe left -> next track
+                        // Swipe left -> next track: flip out immediately, then API
+                        albumArt.beginTransition("left");
                         Spotify.nextTrack();
                     } else {
-                        // Swipe right -> prev track
+                        // Swipe right -> prev track: flip out immediately, then API
+                        albumArt.beginTransition("right");
                         Spotify.prevTrack();
                     }
                     return;
@@ -252,9 +314,9 @@ Item {
                     return;
                 }
 
-                // Tap detection (< 200ms, < 15px movement)
-                if (dt < 200 && dist < 15) {
-                    handleTap(mouse.x, mouse.y);
+                // Tap detection (< 400ms, < 20px movement)
+                if (dt < 400 && dist < 20) {
+                    viewport.handleTap(mouse.x, mouse.y);
                 }
             }
         }
@@ -355,7 +417,7 @@ Item {
                 // Spawn shuffle or sequential burst at last tap position
                 var bx = viewport.lastTapX > 0 ? viewport.lastTapX : viewport.width / 2;
                 var by = viewport.lastTapY > 0 ? viewport.lastTapY : viewport.height / 2;
-                spawnBurst(bx, by, newState ? "shuffle" : "sequential");
+                viewport.spawnBurst(bx, by, newState ? "shuffle" : "sequential");
             }
 
             function onTrackSaved(alreadySaved) {

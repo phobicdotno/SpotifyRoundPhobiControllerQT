@@ -63,7 +63,7 @@ Item {
             color: "white"
             font.pixelSize: vinylRoot.parent ? vinylRoot.parent.width * 0.022 : 22
             font.bold: true
-            font.letterSpacing: font.pixelSize * 0.15
+            font.letterSpacing: (vinylRoot.parent ? vinylRoot.parent.width * 0.022 : 22) * 0.15
             font.capitalization: Font.AllUppercase
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.WordWrap

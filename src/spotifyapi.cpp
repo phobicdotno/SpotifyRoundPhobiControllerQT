@@ -251,22 +251,62 @@ void SpotifyAPI::apiRequest(const QString &method, const QString &path,
 
 void SpotifyAPI::play()
 {
-    apiRequest(QStringLiteral("PUT"), QStringLiteral("/me/player/play"));
+    if (m_hasPlayback) {
+        // Active device exists — just resume
+        apiRequest(QStringLiteral("PUT"), QStringLiteral("/me/player/play"));
+        QTimer::singleShot(500, this, &SpotifyAPI::poll);
+        return;
+    }
+
+    // No active playback — find a device and transfer playback to it
+    if (!ensureToken())
+        return;
+
+    QUrl url(API_BASE + QStringLiteral("/me/player/devices"));
+    QNetworkRequest req = authorizedRequest(url);
+
+    QNetworkReply *reply = m_nam->get(req);
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+
+        QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+        QJsonArray devices = doc.object().value("devices").toArray();
+
+        if (devices.isEmpty()) {
+            qWarning() << "SpotifyAPI: no devices available — open Spotify on a device first";
+            return;
+        }
+
+        // Pick the first available device
+        QString deviceId = devices.first().toObject().value("id").toString();
+
+        // Transfer playback and start playing
+        QJsonObject body;
+        body[QStringLiteral("device_ids")] = QJsonArray{deviceId};
+        body[QStringLiteral("play")] = true;
+        apiRequest(QStringLiteral("PUT"), QStringLiteral("/me/player"), nullptr, body);
+
+        // Poll after a short delay to pick up the new state
+        QTimer::singleShot(1000, this, &SpotifyAPI::poll);
+    });
 }
 
 void SpotifyAPI::pause()
 {
     apiRequest(QStringLiteral("PUT"), QStringLiteral("/me/player/pause"));
+    QTimer::singleShot(500, this, &SpotifyAPI::poll);
 }
 
 void SpotifyAPI::nextTrack()
 {
     apiRequest(QStringLiteral("POST"), QStringLiteral("/me/player/next"));
+    QTimer::singleShot(500, this, &SpotifyAPI::poll);
 }
 
 void SpotifyAPI::prevTrack()
 {
     apiRequest(QStringLiteral("POST"), QStringLiteral("/me/player/previous"));
+    QTimer::singleShot(500, this, &SpotifyAPI::poll);
 }
 
 void SpotifyAPI::toggleShuffle()

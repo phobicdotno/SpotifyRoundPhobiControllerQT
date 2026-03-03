@@ -7,7 +7,7 @@ Window {
     height: 1000
     visible: true
     flags: Qt.FramelessWindowHint | Qt.Window
-    color: "black"
+    color: "transparent"
     title: "Spotify Controller"
 
     // --- Setup View (auth waiting) ---
@@ -29,7 +29,7 @@ Window {
     Connections {
         target: Spotify
         function onTrackChanged(direction) {
-            if (Spotify.authenticated && Spotify.trackName) {
+            if (Spotify.authenticated && Spotify.trackName && direction) {
                 playerView.showTrackToast(Spotify.trackName, Spotify.artist);
             }
         }

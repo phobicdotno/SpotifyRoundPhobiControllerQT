@@ -20,7 +20,9 @@ SpotifyAuth::SpotifyAuth(QObject *parent)
     , m_nam(new QNetworkAccessManager(this))
 {
     loadConfig();
-    startCallbackServer();
+    // Only start callback server if not yet authenticated
+    if (!isAuthenticated())
+        startCallbackServer();
 }
 
 bool SpotifyAuth::isAuthenticated() const
@@ -50,6 +52,10 @@ QNetworkRequest SpotifyAuth::authorizedRequest(const QUrl &url) const
 
 void SpotifyAuth::openAuthInBrowser()
 {
+    // Ensure callback server is running for the OAuth redirect
+    if (!m_callbackServer || !m_callbackServer->isListening())
+        startCallbackServer();
+
     m_codeVerifier = generateCodeVerifier();
     QString challenge = generateCodeChallenge(m_codeVerifier);
 
