@@ -8,7 +8,7 @@ C++ Qt6/QML Spotify controller designed for a 1000x1000 round touchscreen displa
 
 ## Download
 
-Grab the latest release from the [Releases page](https://github.com/phobicdotno/SpotifyRoundPhobiControllerQT/releases). Extract the zip and run `SpotifyController.exe` — no installation or Qt required.
+Grab the latest release from the [Releases page](https://github.com/phobicdotno/SpotifyRoundPhobiControllerQT/releases). Extract the zip and run `SpotifyRoundPhobiControllerQT-1.1.0.exe` — no installation or Qt required.
 
 **Requirements:** Windows 10/11, Spotify Premium account.
 
@@ -77,5 +77,5 @@ cmake --build build
 ### Run
 
 ```bash
-build/SpotifyController.exe
+build/SpotifyRoundPhobiControllerQT-1.1.0.exe
 ```

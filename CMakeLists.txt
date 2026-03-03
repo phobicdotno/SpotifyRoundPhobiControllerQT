@@ -32,6 +32,10 @@ qt_add_qml_module(SpotifyController
         qml/components/BurstEffect.qml
 )
 
+set_target_properties(SpotifyController PROPERTIES
+    OUTPUT_NAME "SpotifyRoundPhobiControllerQT-${PROJECT_VERSION}"
+)
+
 target_link_libraries(SpotifyController PRIVATE
     Qt6::Quick
     Qt6::Network

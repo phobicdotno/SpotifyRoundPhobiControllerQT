@@ -17,7 +17,7 @@ BEGIN
             VALUE "FileDescription", "Spotify Round Phobi Controller"
             VALUE "FileVersion", "1.1.0"
             VALUE "InternalName", "SpotifyController"
-            VALUE "OriginalFilename", "SpotifyController.exe"
+            VALUE "OriginalFilename", "SpotifyRoundPhobiControllerQT-1.1.0.exe"
             VALUE "ProductName", "SpotifyRoundPhobiControllerQT"
             VALUE "ProductVersion", "1.1.0"
         END
