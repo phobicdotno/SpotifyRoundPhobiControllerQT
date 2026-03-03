@@ -11,6 +11,15 @@ Item {
         trackToast.show(name, artist);
     }
 
+    // Circle mask (offscreen, used by OpacityMask)
+    Rectangle {
+        id: circleMask
+        width: viewport.width
+        height: viewport.height
+        radius: width / 2
+        visible: false
+    }
+
     // --- Circular viewport ---
     Rectangle {
         id: viewport
@@ -18,14 +27,12 @@ Item {
         width: Math.min(parent.width, parent.height)
         height: width
         color: "black"
+        clip: true
         layer.enabled: true
         layer.smooth: true
+        layer.sourceRect: Qt.rect(0, 0, width, height)
         layer.effect: OpacityMask {
-            maskSource: Rectangle {
-                width: viewport.width
-                height: viewport.height
-                radius: width / 2
-            }
+            maskSource: circleMask
         }
 
         // --- Album Art ---
