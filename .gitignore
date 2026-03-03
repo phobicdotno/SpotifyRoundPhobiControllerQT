@@ -1,0 +1,6 @@
+build/
+config.json
+*.user
+CMakeUserPresets.json
+.cache/
+__pycache__/
